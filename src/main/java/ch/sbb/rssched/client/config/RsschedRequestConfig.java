@@ -161,6 +161,12 @@ public class RsschedRequestConfig {
         private final Set<VehicleType> vehicleTypes = new HashSet<>();
 
         /**
+         * Optional: TODO document
+         *
+         */
+        private final Map<String, String> transitLineVehicleTypeAllocation = new HashMap<>();
+
+        /**
          * The filter strategy to filter transit lines of interest, default is no filter.
          */
         @JsonIgnore

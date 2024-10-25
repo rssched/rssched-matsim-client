@@ -63,6 +63,12 @@ public class RequestComposer implements Filter<RequestPipe> {
         return LocalDateTime.of(LocalDate.now().plusDays(daysToAdd), time);
     }
 
+    // TODO: Check what happens with non existing types in MATSIM?
+    private static Id<VehicleType> getVehicleTypeFrom(RsschedRequestConfig config, TransitLine transitLine) {
+        return Id.create(config.getGlobal().getTransitLineVehicleTypeAllocation().get(transitLine.getId().toString()),
+                VehicleType.class);
+    }
+
     private static Id<VehicleType> getVehicleTypeFrom(Scenario scenario, TransitRoute transitRoute) {
         Map<Id<VehicleType>, Integer> vehicleTypeFrequencies = new HashMap<>();
         for (Departure departure : transitRoute.getDepartures().values()) {
@@ -227,11 +233,16 @@ public class RequestComposer implements Filter<RequestPipe> {
         }
     }
 
-    private void addRouteWithDepartures(Request.Builder builder, Scenario scenario, TransitRoute transitRoute, Map<Id<Departure>, List<PassengerCount>> passengers) {
+    private void addRouteWithDepartures(Request.Builder builder, Scenario scenario, TransitLine transitLine, TransitRoute transitRoute, Map<Id<Departure>, List<PassengerCount>> passengers) {
         final String transitRouteId = transitRoute.getId().toString();
         final List<Segment> segments = collectSegments(transitRoute, config.getShunting().getOnRouteLocations());
 
-        builder.addRoute(transitRouteId, getVehicleTypeFrom(scenario, transitRoute).toString());
+        if (config.getGlobal().getTransitLineVehicleTypeAllocation().isEmpty()) {
+            builder.addRoute(transitRouteId, getVehicleTypeFrom(scenario, transitRoute).toString());
+        } else {
+            builder.addRoute(transitRouteId, getVehicleTypeFrom(config, transitLine).toString());
+        }
+
         // add intermediate locations and route segments
         for (int i = 0; i < segments.size(); i++) {
             Segment segment = segments.get(i);
@@ -270,7 +281,7 @@ public class RequestComposer implements Filter<RequestPipe> {
     private void addTransitLines(Request.Builder builder, Scenario scenario, Map<Id<TransitLine>, Map<Id<TransitRoute>, Map<Id<Departure>, List<PassengerCount>>>> passengers) {
         for (TransitLine transitLine : scenario.getTransitSchedule().getTransitLines().values()) {
             for (TransitRoute transitRoute : transitLine.getRoutes().values()) {
-                addRouteWithDepartures(builder, scenario, transitRoute,
+                addRouteWithDepartures(builder, scenario, transitLine, transitRoute,
                         passengers.get(transitLine.getId()).get(transitRoute.getId()));
                 if (config.getDepot().isCreateAtTerminalLocations()) {
                     addDepotsToTerminalLocation(builder, scenario, transitRoute);
