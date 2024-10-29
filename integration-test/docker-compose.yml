@@ -1,6 +1,6 @@
 services:
   rssched-scheduler:
-    build: ./../eth_sbb_rolling_stock_scheduling
+    image: ghcr.io/rolling-stock-scheduling/rssched-solver:latest
     ports:
       - "3000:3000"
     environment:
