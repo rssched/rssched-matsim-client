@@ -163,6 +163,8 @@ public class RsschedRequestConfig {
         /**
          * Transit line specific vehicle type allocation which will overwrite the vehicle type set in MATSim transit
          * schedule. Optional: Map can be empty.
+         * <p>
+         * Key: transit line id, value: vehicle type id
          */
         private final Map<String, String> transitLineVehicleTypeAllocation = new HashMap<>();
 

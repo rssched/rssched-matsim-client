@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Reader for XLSX configuration
@@ -61,9 +62,6 @@ public class RsschedRequestConfigReader {
             if (transitLineIdCell != null && vehicleTypeIdCell != null) {
                 String transitLineId = transitLineIdCell.getStringCellValue();
                 String vehicleTypeId = vehicleTypeIdCell.getStringCellValue();
-
-                // TODO: check if (builder.config.getGlobal().getVehicleTypes().contains(vehicleTypeId)) {}
-
                 builder.config.getGlobal().getTransitLineVehicleTypeAllocation().put(transitLineId, vehicleTypeId);
             } else {
                 throw new IllegalStateException("Incomplete transit line row.");
@@ -231,6 +229,22 @@ public class RsschedRequestConfigReader {
         if (builder.config.getGlobal().getTransitLineVehicleTypeAllocation().isEmpty()) {
             builder.setFilterStrategy(new VehicleTypeFilterStrategy(vehicleCategories));
         } else {
+
+            // ensure all allocated vehicle types in transit line sheet exist in the vehicle type sheet
+            Set<String> existingVehicleTypeIds = builder.config.getGlobal()
+                    .getVehicleTypes()
+                    .stream()
+                    .map(RsschedRequestConfig.Global.VehicleType::id)
+                    .collect(Collectors.toSet());
+
+            for (var vehicleTypeId : new HashSet<>(
+                    builder.config.getGlobal().getTransitLineVehicleTypeAllocation().values())) {
+                if (!existingVehicleTypeIds.contains(vehicleTypeId)) {
+                    throw new IllegalStateException(
+                            "Vehicle type " + vehicleTypeId + " from transit line selection is missing in vehicle type sheet.");
+                }
+            }
+
             builder.setFilterStrategy(
                     new TransitLineIdFilterStrategy(builder.config.getGlobal().getTransitLineVehicleTypeAllocation(),
                             vehicleCategories));
