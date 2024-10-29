@@ -1,6 +1,8 @@
 package ch.sbb.rssched.client.config.selection;
 
+import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.Scenario;
+import org.matsim.pt.transitSchedule.api.TransitLine;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,14 +21,24 @@ public class TransitLineIdFilterStrategy implements FilterStrategy {
     @Override
     public TransitLineSelection filter(Scenario scenario) {
         var selection = new TransitLineSelection();
-        scenario.getTransitSchedule().getTransitLines().forEach((transitLineId, transitLine) -> {
-            if (transitLineVehicleTypeAllocations.containsKey(transitLine.getId().toString())) {
-                transitLine.getRoutes().forEach((transitRouteId, transitRoute) -> {
-                    selection.add(lookup.get(transitLineVehicleTypeAllocations.get(transitLine.getId().toString())),
-                            transitLineId, transitRouteId);
-                });
+
+        for (var transitLineId : transitLineVehicleTypeAllocations.keySet()) {
+            var transitLine = scenario.getTransitSchedule()
+                    .getTransitLines()
+                    .get(Id.create(transitLineId, TransitLine.class));
+
+            if (transitLine == null) {
+                throw new IllegalArgumentException(
+                        String.format("No transit line found in scenario with id %s", transitLineId));
             }
-        });
+
+            transitLine.getRoutes().forEach((transitRouteId, transitRoute) -> {
+                selection.add(lookup.get(transitLineVehicleTypeAllocations.get(transitLine.getId().toString())),
+                        transitLine.getId(), transitRouteId);
+            });
+
+        }
+
         return selection;
     }
 
