@@ -5,6 +5,7 @@ import ch.sbb.rssched.client.config.RsschedRequestConfigReader;
 import ch.sbb.rssched.client.config.selection.FilterStrategy;
 import ch.sbb.rssched.client.config.selection.TransitLineSelection;
 import ch.sbb.rssched.client.dto.response.Response;
+import lombok.Getter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,8 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class RsschedMatsimClientIT {
 
-    private static final String REQUEST_CONFIG_XLSX = "integration-test/input/de/kelheim/kelheim-v3.0/25pct/kelheim-v3.0-25pct.rssched_request_config.xlsx";
-    private static final String REQUEST_CONFIG_LINE_SELECTION_XLSX = "integration-test/input/de/kelheim/kelheim-v3.0/25pct/kelheim-v3.0-25pct.rssched_request_config_with_transit_line_selection.xlsx";
     private static final String SCHEDULER_BASE_URL = "http://localhost";
     private static final int SCHEDULER_PORT = 3000;
 
@@ -27,7 +26,8 @@ class RsschedMatsimClientIT {
 
     @Test
     void testWithConfigReader_vehicleTypeFilter() throws IOException {
-        RsschedRequestConfig config = new RsschedRequestConfigReader().readExcelFile(REQUEST_CONFIG_XLSX);
+        RsschedRequestConfig config = new RsschedRequestConfigReader().readExcelFile(
+                RequestConfig.VEHICLE_TYPE_FILTER.getFilePath());
         RsschedMatsimClient client = new RsschedMatsimClient(SCHEDULER_BASE_URL, SCHEDULER_PORT);
         Response response = client.process(config);
 
@@ -35,9 +35,9 @@ class RsschedMatsimClientIT {
     }
 
     @Test
-    void testWithConfigReader_lineIdFilter() throws IOException {
+    void testWithConfigReader_transitLineFilter() throws IOException {
         RsschedRequestConfig config = new RsschedRequestConfigReader().readExcelFile(
-                REQUEST_CONFIG_LINE_SELECTION_XLSX);
+                RequestConfig.TRANSIT_LINE_FILTER.getFilePath());
         RsschedMatsimClient client = new RsschedMatsimClient(SCHEDULER_BASE_URL, SCHEDULER_PORT);
         Response response = client.process(config);
 
@@ -113,5 +113,17 @@ class RsschedMatsimClientIT {
         Response response = client.process(config);
 
         assertNotNull(response);
+    }
+
+    @Getter
+    enum RequestConfig {
+        VEHICLE_TYPE_FILTER("kelheim-v3.0-25pct.rssched_request_config_vehicle_type_filter.xlsx"),
+        TRANSIT_LINE_FILTER("kelheim-v3.0-25pct.rssched_request_config_transit_line_filter.xlsx");
+
+        private final String filePath;
+
+        RequestConfig(String file) {
+            this.filePath = "integration-test/input/de/kelheim/kelheim-v3.0/25pct/" + file;
+        }
     }
 }
