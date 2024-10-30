@@ -25,7 +25,7 @@ public class RequestPipeline extends Pipeline<RequestPipe> {
         // set source
         super(new ScenarioPassengerCollector(config.getRunId(),
                 new ScenarioPipeline(config.getInstanceId(), config.getRunId(), config.getInputDirectory(),
-                        config.getOutputDirectory(), config.getNetworkCrs(), config.getGlobal().getFilterStrategy()),
+                        config.getOutputDirectory(), config.getGlobal().getFilterStrategy()),
                 new PassengerPipeline(config.getInstanceId(), config.getRunId(), config.getInputDirectory(),
                         config.getOutputDirectory(), config.getGlobal().getFilterStrategy(),
                         config.getGlobal().getSampleSize(), config.getGlobal().getSeatDurationThreshold())));

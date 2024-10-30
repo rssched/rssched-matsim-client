@@ -69,7 +69,6 @@ class RsschedMatsimClientIT {
                 .setInputDirectory(MatsimRun.INPUT_DIRECTORY)
                 .setOutputDirectory(MatsimRun.OUTPUT_DIRECTORY)
                 .setRunId(MatsimRun.ID)
-                .setNetworkCrs(MatsimRun.CRS)
                 .setFilterStrategy(filterStrategy);
 
         // add depots

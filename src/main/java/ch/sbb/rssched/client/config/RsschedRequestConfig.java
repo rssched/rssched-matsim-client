@@ -40,7 +40,6 @@ public class RsschedRequestConfig {
     private String runId;
     private String inputDirectory;
     private String outputDirectory;
-    private String networkCrs;
 
     public static Builder builder() {
         return new Builder();
@@ -82,11 +81,6 @@ public class RsschedRequestConfig {
 
         public Builder setOutputDirectory(String outputDirectory) {
             config.outputDirectory = outputDirectory;
-            return this;
-        }
-
-        public Builder setNetworkCrs(String crs) {
-            config.networkCrs = crs;
             return this;
         }
 
@@ -138,7 +132,7 @@ public class RsschedRequestConfig {
          * @return The fully configured RequestConfig instance.
          */
         public RsschedRequestConfig buildWithDefaults() {
-            if (config.instanceId == null || config.runId == null || config.inputDirectory == null || config.outputDirectory == null || config.networkCrs == null) {
+            if (config.instanceId == null || config.runId == null || config.inputDirectory == null || config.outputDirectory == null) {
                 throw new IllegalStateException(
                         "Mandatory fields (instanceId, runId, inputDirectory, outputDirectory, networkCrs) must be set.");
             }
