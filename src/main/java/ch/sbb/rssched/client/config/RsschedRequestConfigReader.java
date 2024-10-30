@@ -15,6 +15,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -100,6 +101,12 @@ public class RsschedRequestConfigReader {
                             case "sampleSize":
                                 builder.config.getGlobal().setSampleSize(valueCell.getNumericCellValue());
                                 break;
+                            case "deadHeadTripAllowedModes":
+                                if (!valueCell.getStringCellValue().isBlank()) {
+                                    Arrays.stream(valueCell.getStringCellValue().split(","))
+                                            .forEach(value -> builder.addAllowedMode(value.trim()));
+                                }
+                                break;
                             case "deadHeadTripSpeedLimit":
                                 builder.config.getGlobal().setDeadHeadTripSpeedLimit(valueCell.getNumericCellValue());
                                 break;
@@ -112,6 +119,9 @@ public class RsschedRequestConfigReader {
                                 break;
                             case "dayLimitThreshold":
                                 builder.config.getGlobal().setDayLimitThreshold((int) valueCell.getNumericCellValue());
+                                break;
+                            case "capacityFactor":
+                                builder.config.getGlobal().setCapacityFactor(valueCell.getNumericCellValue());
                                 break;
                             case "seatDurationThreshold":
                                 builder.config.getGlobal()

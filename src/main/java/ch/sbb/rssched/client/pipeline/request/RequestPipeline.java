@@ -31,10 +31,11 @@ public class RequestPipeline extends Pipeline<RequestPipe> {
         super(new ScenarioPassengerCollector(config.getRunId(),
                 new ScenarioPipeline(config.getInstanceId(), config.getRunId(), config.getInputDirectory(),
                         config.getOutputDirectory(), config.getGlobal().getFilterStrategy(),
-                        collectTransitStopFacilitiesToKeep(config)),
+                        collectTransitStopFacilitiesToKeep(config), config.getGlobal().getAllowedModes()),
                 new PassengerPipeline(config.getInstanceId(), config.getRunId(), config.getInputDirectory(),
                         config.getOutputDirectory(), config.getGlobal().getFilterStrategy(),
-                        config.getGlobal().getSampleSize(), config.getGlobal().getSeatDurationThreshold())));
+                        config.getGlobal().getSampleSize(), config.getGlobal().getCapacityFactor(),
+                        config.getGlobal().getSeatDurationThreshold())));
         // add filter
         addFilter(new RequestComposer(config));
         // add sink

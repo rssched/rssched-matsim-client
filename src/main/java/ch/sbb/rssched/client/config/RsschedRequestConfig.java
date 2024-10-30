@@ -89,6 +89,14 @@ public class RsschedRequestConfig {
             return this;
         }
 
+        public Builder addAllowedMode(String mode) {
+            if (config.global.allowedModes.contains(mode)) {
+                throw new IllegalArgumentException("Allowed mode " + mode + "already exists.");
+            }
+            config.global.allowedModes.add(mode);
+            return this;
+        }
+
         public Builder addDepot(String id, String locationId, int capacity) {
             if (depots.containsKey(id)) {
                 throw new IllegalArgumentException("Depot " + id + "already exists.");
@@ -147,6 +155,16 @@ public class RsschedRequestConfig {
     public static class Global {
 
         /**
+         * Specifies the network modes allowed for transit vehicles. Deadhead trips are routed using network links that
+         * match one of these allowed modes. If no allowed modes are set, the network will not be filtered, allowing
+         * deadhead trips on the entire network.
+         * <p>
+         * Note: Every link used by the transit lines must have at least one allowed network mode. If a link lacks an
+         * allowed mode, it will be filtered out of the network, which is not permitted.
+         */
+        private final Set<String> allowedModes = new HashSet<>();
+
+        /**
          * Define transit vehicle types in the scenario, which will overwrite the vehicle types from the MATSim
          * scenario.
          * <p>
@@ -193,6 +211,11 @@ public class RsschedRequestConfig {
          * Vehicles with stopping times under this threshold in seconds do not count into dayLimit at stations.
          */
         private int dayLimitThreshold = 0;
+
+        /**
+         * Adjust the passenger capacity of units to reflect deviations in passenger demand.
+         */
+        private double capacityFactor = 1.0;
 
         /**
          * Passenger travelling longer than this threshold are assigned a seat. Travel times below this threshold

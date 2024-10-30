@@ -276,8 +276,11 @@ public class RequestComposer implements Filter<RequestPipe> {
                 }
                 // get total and seated passengers
                 PassengerResult result = extractPassengers(passengers.get(departure.getId()), segment);
+                // multiply with capacity factor to reflect deviations in passenger demand
                 builder.addSegmentToDeparture(departureSegmentId, departureId, segmentId,
-                        toLocalDateTime(departureTime), result.passengers, result.seats);
+                        toLocalDateTime(departureTime),
+                        (int) Math.round(result.passengers * config.getGlobal().getCapacityFactor()),
+                        (int) Math.round(result.seats * config.getGlobal().getCapacityFactor()));
             }
         }
     }
