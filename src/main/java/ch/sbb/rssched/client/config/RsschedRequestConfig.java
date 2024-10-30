@@ -114,7 +114,7 @@ public class RsschedRequestConfig {
 
         public Builder addShuntingLocation(String locationId) {
             if (config.shunting.onRouteLocations.contains(locationId)) {
-                throw new IllegalArgumentException("Shunting location with id" + locationId + "already exists.");
+                throw new IllegalArgumentException("Shunting location with id " + locationId + " already exists.");
             }
             config.shunting.onRouteLocations.add(locationId);
             return this;

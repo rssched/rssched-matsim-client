@@ -2,6 +2,10 @@ package ch.sbb.rssched.client.pipeline.scenario;
 
 import ch.sbb.rssched.client.config.selection.FilterStrategy;
 import ch.sbb.rssched.client.pipeline.core.Pipeline;
+import org.matsim.api.core.v01.Id;
+import org.matsim.pt.transitSchedule.api.TransitStopFacility;
+
+import java.util.Set;
 
 /**
  * The ScenarioPipeline processes a MATSim SIMBA MOBi scenario for the Innosuisse project REP of SBB and ETH Zurich.
@@ -23,15 +27,15 @@ public class ScenarioPipeline extends Pipeline<ScenarioPipe> {
      * @param outputDirectory the output directory to export the processed scenario files
      * @param filterStrategy  the strategy for filtering transit lines
      */
-    public ScenarioPipeline(String instanceId, String runId, String inputDirectory, String outputDirectory, FilterStrategy filterStrategy) {
+    public ScenarioPipeline(String instanceId, String runId, String inputDirectory, String outputDirectory, FilterStrategy filterStrategy, Set<Id<TransitStopFacility>> transitStopFacilitiesToKeep) {
         // set source
         super(new ScenarioSource(runId, inputDirectory));
         // filter transit lines
         addFilter(new TransitLineFilter(filterStrategy));
         // mask scenario
-        addFilter(new TransitScheduleMask());
+        addFilter(new TransitScheduleMask(transitStopFacilitiesToKeep));
         addFilter(new TransitVehicleMask());
-        addFilter(new NetworkMask());
+        addFilter(new NetworkMask(new NetworkMask.LinksWithPassingTransitLines()));
         // clear attributes
         addFilter(new AttributeRemover());
         // add sink
