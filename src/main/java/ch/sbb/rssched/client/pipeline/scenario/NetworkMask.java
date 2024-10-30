@@ -48,6 +48,37 @@ class NetworkMask implements Filter<ScenarioPipe> {
                 .forEach(network::removeNode);
     }
 
+    private static void clearAllowedModes(Network network) {
+        network.getLinks().values().forEach(link -> link.setAllowedModes(new HashSet<>()));
+    }
+
+    private static void retainLinks(Network network, Set<Id<Link>> allowedModeLinkIds) {
+        network.getLinks()
+                .keySet()
+                .stream()
+                .filter(linkId -> !allowedModeLinkIds.contains(linkId))
+                .forEach(network::removeLink);
+    }
+
+    private static Set<Id<Link>> getTransitLineLinkIds(Set<Id<TransitLine>> transitLineIds, TransitSchedule transitSchedule) {
+        return transitLineIds.stream()
+                .flatMap(transitLineId -> transitSchedule.getTransitLines()
+                        .get(transitLineId)
+                        .getRoutes()
+                        .values()
+                        .stream()
+                        .flatMap(transitRoute -> {
+                            Set<Id<Link>> linkIds = new HashSet<>(transitRoute.getRoute().getLinkIds());
+                            linkIds.add(transitRoute.getStops().get(0).getStopFacility().getLinkId());
+                            linkIds.add(transitRoute.getStops()
+                                    .get(transitRoute.getStops().size() - 1)
+                                    .getStopFacility()
+                                    .getLinkId());
+                            return linkIds.stream();
+                        }))
+                .collect(Collectors.toSet());
+    }
+
     @Override
     public void apply(ScenarioPipe pipe) {
         log.info("Masking network (nodes: {}, links: {})", pipe.scenario.getNetwork().getNodes().size(),
@@ -57,7 +88,6 @@ class NetworkMask implements Filter<ScenarioPipe> {
         log.info("Done (remaining nodes: {}, links: {})", pipe.scenario.getNetwork().getNodes().size(),
                 pipe.scenario.getNetwork().getLinks().size());
     }
-
 
     public void maskLinks(Scenario scenario, Set<Id<TransitLine>> transitLineIds) {
         var transitSchedule = scenario.getTransitSchedule();
@@ -89,10 +119,6 @@ class NetworkMask implements Filter<ScenarioPipe> {
         }
     }
 
-    private static void clearAllowedModes(Network network) {
-        network.getLinks().values().forEach(link -> link.setAllowedModes(new HashSet<>()));
-    }
-
     private void addAllowedMode(Network network, Set<Id<Link>> linksIds, String allowedMode) {
         network.getLinks().values().stream().filter(link -> linksIds.contains(link.getId())).forEach(link -> {
             var linkAllowedModes = new HashSet<>(link.getAllowedModes());
@@ -101,34 +127,11 @@ class NetworkMask implements Filter<ScenarioPipe> {
         });
     }
 
-    private static void retainLinks(Network network, Set<Id<Link>> allowedModeLinkIds) {
-        network.getLinks()
-                .keySet()
-                .stream()
-                .filter(linkId -> !allowedModeLinkIds.contains(linkId))
-                .forEach(network::removeLink);
-    }
-
-    private static Set<Id<Link>> getTransitLineLinkIds(Set<Id<TransitLine>> transitLineIds, TransitSchedule transitSchedule) {
-        return transitLineIds.stream()
-                .flatMap(transitLineId -> transitSchedule.getTransitLines()
-                        .get(transitLineId)
-                        .getRoutes()
-                        .values()
-                        .stream()
-                        .flatMap(transitRoute -> {
-                            Set<Id<Link>> linkIds = new HashSet<>(transitRoute.getRoute().getLinkIds());
-                            linkIds.add(transitRoute.getStops().get(0).getStopFacility().getLinkId());
-                            linkIds.add(transitRoute.getStops()
-                                    .get(transitRoute.getStops().size() - 1)
-                                    .getStopFacility()
-                                    .getLinkId());
-                            return linkIds.stream();
-                        }))
-                .collect(Collectors.toSet());
-    }
-
     private Set<Id<Link>> getLinksWithAllowedMode(Network network) {
+        if (allowedModes.isEmpty()) {
+            return network.getLinks().keySet();
+        }
+
         return network.getLinks()
                 .values()
                 .stream()

@@ -27,7 +27,7 @@ public class ScenarioPipeline extends Pipeline<ScenarioPipe> {
      * @param outputDirectory the output directory to export the processed scenario files
      * @param filterStrategy  the strategy for filtering transit lines
      */
-    public ScenarioPipeline(String instanceId, String runId, String inputDirectory, String outputDirectory, FilterStrategy filterStrategy, Set<Id<TransitStopFacility>> transitStopFacilitiesToKeep) {
+    public ScenarioPipeline(String instanceId, String runId, String inputDirectory, String outputDirectory, FilterStrategy filterStrategy, Set<Id<TransitStopFacility>> transitStopFacilitiesToKeep, Set<String> allowedModes) {
         // set source
         super(new ScenarioSource(runId, inputDirectory));
         // filter transit lines
@@ -35,7 +35,7 @@ public class ScenarioPipeline extends Pipeline<ScenarioPipe> {
         // mask scenario
         addFilter(new TransitScheduleMask(transitStopFacilitiesToKeep));
         addFilter(new TransitVehicleMask());
-        addFilter(new NetworkMask(Set.of("pt", "rail")));
+        addFilter(new NetworkMask(allowedModes));
         // clear attributes
         addFilter(new AttributeRemover());
         // add sink
