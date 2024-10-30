@@ -35,7 +35,7 @@ public class ScenarioPipeline extends Pipeline<ScenarioPipe> {
         // mask scenario
         addFilter(new TransitScheduleMask(transitStopFacilitiesToKeep));
         addFilter(new TransitVehicleMask());
-        addFilter(new NetworkMask(new NetworkMask.LinksWithPassingTransitLines()));
+        addFilter(new NetworkMask(Set.of("pt", "rail")));
         // clear attributes
         addFilter(new AttributeRemover());
         // add sink
