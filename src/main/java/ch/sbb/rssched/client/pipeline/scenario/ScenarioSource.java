@@ -11,7 +11,6 @@ import ch.sbb.rssched.client.pipeline.utils.io.ScenarioLoader;
 class ScenarioSource implements DataSource<ScenarioPipe> {
     private final String runId;
     private final String inputFolder;
-    private final String networkCrs;
 
     /**
      * Constructs a ScenarioLoader object with the specified run ID and input folder.
@@ -19,14 +18,13 @@ class ScenarioSource implements DataSource<ScenarioPipe> {
      * @param runId       the ID of the simulation run
      * @param inputFolder the folder containing the output files of the run
      */
-    public ScenarioSource(String runId, String inputFolder, String networkCrs) {
+    public ScenarioSource(String runId, String inputFolder) {
         this.runId = runId;
         this.inputFolder = inputFolder;
-        this.networkCrs = networkCrs;
     }
 
     @Override
     public ScenarioPipe fetch() {
-        return new ScenarioPipe(runId, new ScenarioLoader(runId, inputFolder, networkCrs).load());
+        return new ScenarioPipe(runId, new ScenarioLoader(runId, inputFolder).load(true));
     }
 }

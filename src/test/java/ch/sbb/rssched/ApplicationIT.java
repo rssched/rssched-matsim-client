@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ApplicationIT {
 
-    private static final String CONFIG_FILE = "integration-test/input/de/kelheim/kelheim-v3.0/25pct/kelheim-v3.0-25pct.rssched_request_config.xlsx";
+    private static final String CONFIG_FILE = "integration-test/input/de/kelheim/kelheim-v3.0/25pct/kelheim-v3.0-25pct.rssched_request_config_vehicle_type_filter.xlsx";
     private static final String SCHEDULER_BASE_URL = "http://localhost";
     private static final String SCHEDULER_PORT = "3000";
 

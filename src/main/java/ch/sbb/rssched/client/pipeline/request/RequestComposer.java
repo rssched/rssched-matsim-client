@@ -63,6 +63,11 @@ public class RequestComposer implements Filter<RequestPipe> {
         return LocalDateTime.of(LocalDate.now().plusDays(daysToAdd), time);
     }
 
+    private static Id<VehicleType> getVehicleTypeFrom(RsschedRequestConfig config, TransitLine transitLine) {
+        return Id.create(config.getGlobal().getTransitLineVehicleTypeAllocation().get(transitLine.getId().toString()),
+                VehicleType.class);
+    }
+
     private static Id<VehicleType> getVehicleTypeFrom(Scenario scenario, TransitRoute transitRoute) {
         Map<Id<VehicleType>, Integer> vehicleTypeFrequencies = new HashMap<>();
         for (Departure departure : transitRoute.getDepartures().values()) {
@@ -148,7 +153,8 @@ public class RequestComposer implements Filter<RequestPipe> {
                 maxPassengers = Math.max(maxPassengers, leg.count());
                 maxSeats = Math.max(maxSeats, leg.seats());
             }
-            if (leg.toStop() != null && segment.destination.getStopFacility().getId()
+            if (leg.toStop() != null && segment.destination.getStopFacility()
+                    .getId()
                     .equals(leg.toStop().getStopFacility().getId())) {
                 break;
             }
@@ -173,7 +179,7 @@ public class RequestComposer implements Filter<RequestPipe> {
         } else {
             // only add specific depots from list if automated depot at terminal creation is deactivated.
             // Otherwise, specific depots from config are ignored.
-            addDepotsFromConfig(builder);
+            addDepotsFromConfig(builder, scenario);
         }
         addMaintenanceSlots(builder, scenario);
         addDeadHeadTrips(builder, scenario);
@@ -191,15 +197,17 @@ public class RequestComposer implements Filter<RequestPipe> {
     }
 
     private void addVehicleTypesFromConfig(Request.Builder builder) {
-        config.getGlobal().getVehicleTypes().forEach(
-                vehicleType -> builder.addVehicleType(vehicleType.id(), vehicleType.capacity(), vehicleType.seats(),
-                        vehicleType.maximalFormationCount()));
+        config.getGlobal()
+                .getVehicleTypes()
+                .forEach(vehicleType -> builder.addVehicleType(vehicleType.id(), vehicleType.capacity(),
+                        vehicleType.seats(), vehicleType.maximalFormationCount()));
 
     }
 
     private void addVehicleTypesFromScenario(Request.Builder builder, Scenario scenario) {
-        scenario.getTransitVehicles().getVehicleTypes().forEach(
-                (vehicleTypeId, vehicleType) -> builder.addVehicleType(vehicleTypeId.toString(),
+        scenario.getTransitVehicles()
+                .getVehicleTypes()
+                .forEach((vehicleTypeId, vehicleType) -> builder.addVehicleType(vehicleTypeId.toString(),
                         vehicleType.getCapacity().getSeats(),
                         vehicleType.getCapacity().getSeats() + vehicleType.getCapacity().getStandingRoom(),
                         config.getShunting().getDefaultMaximalFormationCount()));
@@ -216,7 +224,9 @@ public class RequestComposer implements Filter<RequestPipe> {
         addDepot(builder, origin);
         // add upper bound for vehicle types
         for (Departure departure : transitRoute.getDepartures().values()) {
-            VehicleType vehicleType = scenario.getTransitVehicles().getVehicles().get(departure.getVehicleId())
+            VehicleType vehicleType = scenario.getTransitVehicles()
+                    .getVehicles()
+                    .get(departure.getVehicleId())
                     .getType();
             Set<VehicleType> bounds = depots.computeIfAbsent(origin, k -> new HashSet<>());
             if (!bounds.contains(vehicleType)) {
@@ -227,11 +237,16 @@ public class RequestComposer implements Filter<RequestPipe> {
         }
     }
 
-    private void addRouteWithDepartures(Request.Builder builder, Scenario scenario, TransitRoute transitRoute, Map<Id<Departure>, List<PassengerCount>> passengers) {
+    private void addRouteWithDepartures(Request.Builder builder, Scenario scenario, TransitLine transitLine, TransitRoute transitRoute, Map<Id<Departure>, List<PassengerCount>> passengers) {
         final String transitRouteId = transitRoute.getId().toString();
         final List<Segment> segments = collectSegments(transitRoute, config.getShunting().getOnRouteLocations());
 
-        builder.addRoute(transitRouteId, getVehicleTypeFrom(scenario, transitRoute).toString());
+        if (config.getGlobal().getTransitLineVehicleTypeAllocation().isEmpty()) {
+            builder.addRoute(transitRouteId, getVehicleTypeFrom(scenario, transitRoute).toString());
+        } else {
+            builder.addRoute(transitRouteId, getVehicleTypeFrom(config, transitLine).toString());
+        }
+
         // add intermediate locations and route segments
         for (int i = 0; i < segments.size(); i++) {
             Segment segment = segments.get(i);
@@ -261,8 +276,11 @@ public class RequestComposer implements Filter<RequestPipe> {
                 }
                 // get total and seated passengers
                 PassengerResult result = extractPassengers(passengers.get(departure.getId()), segment);
+                // multiply with capacity factor to reflect deviations in passenger demand
                 builder.addSegmentToDeparture(departureSegmentId, departureId, segmentId,
-                        toLocalDateTime(departureTime), result.passengers, result.seats);
+                        toLocalDateTime(departureTime),
+                        (int) Math.round(result.passengers * config.getGlobal().getCapacityFactor()),
+                        (int) Math.round(result.seats * config.getGlobal().getCapacityFactor()));
             }
         }
     }
@@ -270,7 +288,7 @@ public class RequestComposer implements Filter<RequestPipe> {
     private void addTransitLines(Request.Builder builder, Scenario scenario, Map<Id<TransitLine>, Map<Id<TransitRoute>, Map<Id<Departure>, List<PassengerCount>>>> passengers) {
         for (TransitLine transitLine : scenario.getTransitSchedule().getTransitLines().values()) {
             for (TransitRoute transitRoute : transitLine.getRoutes().values()) {
-                addRouteWithDepartures(builder, scenario, transitRoute,
+                addRouteWithDepartures(builder, scenario, transitLine, transitRoute,
                         passengers.get(transitLine.getId()).get(transitRoute.getId()));
                 if (config.getDepot().isCreateAtTerminalLocations()) {
                     addDepotsToTerminalLocation(builder, scenario, transitRoute);
@@ -304,8 +322,19 @@ public class RequestComposer implements Filter<RequestPipe> {
         }
     }
 
-    private void addDepotsFromConfig(Request.Builder builder) {
+    private void addDepotsFromConfig(Request.Builder builder, Scenario scenario) {
         for (RsschedRequestConfig.Depot.Facility capacity : config.getDepot().getCapacities()) {
+
+            // add depot location if not yet existing
+            Id<TransitStopFacility> facilityId = Id.create(capacity.locationId(), TransitStopFacility.class);
+            TransitStopFacility facility = scenario.getTransitSchedule().getFacilities().get(facilityId);
+            if (facility == null) {
+                throw new IllegalStateException(
+                        "Depot location " + facilityId + " not found in transit schedule facilities.");
+            }
+            addLocation(builder, facility);
+
+            // add depot with allowed type capacities
             builder.addDepot(capacity.id(), capacity.locationId(), capacity.capacity());
             for (RsschedRequestConfig.Depot.AllowedType allowedType : capacity.allowedTypes()) {
                 builder.addVehicleTypeToDepot(capacity.id(), allowedType.vehicleType(), allowedType.capacity());
@@ -315,6 +344,8 @@ public class RequestComposer implements Filter<RequestPipe> {
 
     private void addMaintenanceSlots(Request.Builder builder, Scenario scenario) {
         for (RsschedRequestConfig.Maintenance.Slot slot : config.getMaintenance().getSlots()) {
+
+            // add maintenance location if not yet existing
             Id<TransitStopFacility> facilityId = Id.create(slot.locationId(), TransitStopFacility.class);
             TransitStopFacility facility = scenario.getTransitSchedule().getFacilities().get(facilityId);
             if (facility == null) {
@@ -322,6 +353,8 @@ public class RequestComposer implements Filter<RequestPipe> {
                         "Maintenance location " + facilityId + " not found in transit schedule facilities.");
             }
             addLocation(builder, facility);
+
+            // add maintenance slot with number of tracks
             builder.addMaintenanceSlot(slot.id(), slot.locationId(), slot.start(), slot.end(), slot.trackCount());
         }
     }

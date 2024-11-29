@@ -29,7 +29,7 @@ class EventSource implements DataSource<PassengerPipe> {
     @Override
     public PassengerPipe fetch() {
         var scenarioLoader = new ScenarioLoader(runId, inputFolder);
-        return new PassengerPipe(runId, scenarioLoader.getEventsFile(), scenarioLoader.load(), new HashSet<>(),
+        return new PassengerPipe(runId, scenarioLoader.getEventsFile(), scenarioLoader.load(false), new HashSet<>(),
                 new ArrayList<>());
     }
 }

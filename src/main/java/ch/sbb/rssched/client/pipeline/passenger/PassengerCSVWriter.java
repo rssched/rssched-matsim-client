@@ -25,21 +25,23 @@ import java.util.List;
 @Log4j2
 class PassengerCSVWriter implements ResultSink<PassengerPipe> {
     private static final String PASSENGER_FILE = "passenger.csv";
-    private static final String[] HEADER = {"transit_line_id", "transit_route_id", "departure_id", "stop_id", "stop_name", "arrival", "departure", "egress", "access", "to_stop_id", "to_stop_name", "passengers", "seats"};
+    private static final String[] HEADER = {"transit_line_id", "transit_route_id", "departure_id", "stop_id", "stop_name", "arrival", "departure", "egress", "access", "to_stop_id", "to_stop_name", "passenger_demand", "seat_demand", "passenger_min_capacity", "seat_min_capacity"};
     private final String outputDirectory;
     private final String instanceId;
+    private final double capacityFactor;
 
     /**
      * Constructs a PassengerExporter with the specified output directory.
      *
      * @param outputDirectory the directory to export the passenger file to.
      */
-    public PassengerCSVWriter(String outputDirectory, String instanceId) {
+    public PassengerCSVWriter(String outputDirectory, String instanceId, double capacityFactor) {
         this.outputDirectory = outputDirectory;
         this.instanceId = instanceId;
+        this.capacityFactor = capacityFactor;
     }
 
-    public static void writeCsv(List<EventAnalysis.Entry> entries, String filename) throws UncheckedIOException {
+    public static void writeCsv(List<EventAnalysis.Entry> entries, String filename, double capacityFactor) throws UncheckedIOException {
         try (CSVPrinter csv = new CSVPrinter(IOUtils.getBufferedWriter(filename),
                 CSVFormat.DEFAULT.builder().setHeader(HEADER).build())) {
             for (var entry : entries) {
@@ -73,6 +75,8 @@ class PassengerCSVWriter implements ResultSink<PassengerPipe> {
                 csv.print(toStopName);
                 csv.print(entry.getCount());
                 csv.print(entry.getSeats());
+                csv.print(Math.round(entry.getCount() * capacityFactor));
+                csv.print(Math.round(entry.getSeats() * capacityFactor));
                 csv.println();
             }
         } catch (IOException e) {
@@ -85,6 +89,6 @@ class PassengerCSVWriter implements ResultSink<PassengerPipe> {
         String passengerFilePath = new OutputDirectoryManager(outputDirectory, pipe.runId(), instanceId).buildFilePath(
                 PASSENGER_FILE);
         log.info("Exporting passenger file to {}", passengerFilePath);
-        writeCsv(pipe.entries(), passengerFilePath);
+        writeCsv(pipe.entries(), passengerFilePath, capacityFactor);
     }
 }

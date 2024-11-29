@@ -40,7 +40,6 @@ public class RsschedRequestConfig {
     private String runId;
     private String inputDirectory;
     private String outputDirectory;
-    private String networkCrs;
 
     public static Builder builder() {
         return new Builder();
@@ -85,13 +84,16 @@ public class RsschedRequestConfig {
             return this;
         }
 
-        public Builder setNetworkCrs(String crs) {
-            config.networkCrs = crs;
+        public Builder setFilterStrategy(FilterStrategy filterStrategy) {
+            config.global.filterStrategy = filterStrategy;
             return this;
         }
 
-        public Builder setFilterStrategy(FilterStrategy filterStrategy) {
-            config.global.filterStrategy = filterStrategy;
+        public Builder addAllowedMode(String mode) {
+            if (config.global.allowedModes.contains(mode)) {
+                throw new IllegalArgumentException("Allowed mode " + mode + "already exists.");
+            }
+            config.global.allowedModes.add(mode);
             return this;
         }
 
@@ -120,7 +122,7 @@ public class RsschedRequestConfig {
 
         public Builder addShuntingLocation(String locationId) {
             if (config.shunting.onRouteLocations.contains(locationId)) {
-                throw new IllegalArgumentException("Shunting location with id" + locationId + "already exists.");
+                throw new IllegalArgumentException("Shunting location with id " + locationId + " already exists.");
             }
             config.shunting.onRouteLocations.add(locationId);
             return this;
@@ -138,7 +140,7 @@ public class RsschedRequestConfig {
          * @return The fully configured RequestConfig instance.
          */
         public RsschedRequestConfig buildWithDefaults() {
-            if (config.instanceId == null || config.runId == null || config.inputDirectory == null || config.outputDirectory == null || config.networkCrs == null) {
+            if (config.instanceId == null || config.runId == null || config.inputDirectory == null || config.outputDirectory == null) {
                 throw new IllegalStateException(
                         "Mandatory fields (instanceId, runId, inputDirectory, outputDirectory, networkCrs) must be set.");
             }
@@ -153,12 +155,30 @@ public class RsschedRequestConfig {
     public static class Global {
 
         /**
+         * Specifies the network modes allowed for transit vehicles. Deadhead trips are routed using network links that
+         * match one of these allowed modes. If no allowed modes are set, the network will not be filtered, allowing
+         * deadhead trips on the entire network.
+         * <p>
+         * Note: Every link used by the transit lines must have at least one allowed network mode. If a link lacks an
+         * allowed mode, it will be filtered out of the network, which is not permitted.
+         */
+        private final Set<String> allowedModes = new HashSet<>();
+
+        /**
          * Define transit vehicle types in the scenario, which will overwrite the vehicle types from the MATSim
          * scenario.
          * <p>
          * Note: The transit vehicle type ids must match / exist in the matsim scenario.
          */
         private final Set<VehicleType> vehicleTypes = new HashSet<>();
+
+        /**
+         * Transit line specific vehicle type allocation which will overwrite the vehicle type set in MATSim transit
+         * schedule. Optional: Map can be empty.
+         * <p>
+         * Key: transit line id, value: vehicle type id
+         */
+        private final Map<String, String> transitLineVehicleTypeAllocation = new HashMap<>();
 
         /**
          * The filter strategy to filter transit lines of interest, default is no filter.
@@ -191,6 +211,11 @@ public class RsschedRequestConfig {
          * Vehicles with stopping times under this threshold in seconds do not count into dayLimit at stations.
          */
         private int dayLimitThreshold = 0;
+
+        /**
+         * Adjust the passenger capacity of units to reflect deviations in passenger demand.
+         */
+        private double capacityFactor = 1.0;
 
         /**
          * Passenger travelling longer than this threshold are assigned a seat. Travel times below this threshold

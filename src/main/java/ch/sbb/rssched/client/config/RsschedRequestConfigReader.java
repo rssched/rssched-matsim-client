@@ -1,5 +1,7 @@
 package ch.sbb.rssched.client.config;
 
+import ch.sbb.rssched.client.config.selection.TransitLineIdFilterStrategy;
+import ch.sbb.rssched.client.config.selection.VehicleCategory;
 import ch.sbb.rssched.client.config.selection.VehicleTypeFilterStrategy;
 import lombok.NoArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -13,10 +15,12 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Reader for XLSX configuration
@@ -41,11 +45,29 @@ public class RsschedRequestConfigReader {
         FileInputStream fis = new FileInputStream(filePath);
         Workbook workbook = new XSSFWorkbook(fis);
         parseScenarioInfoSheet(workbook.getSheet(Sheets.SCENARIO_INFO));
+        parseTransitLinesSheet(workbook.getSheet(Sheets.TRANSIT_LINES));
         parseVehicleTypesSheet(workbook.getSheet(Sheets.VEHICLE_TYPES));
         parseShuntingLocationsOnRouteSheet(workbook.getSheet(Sheets.SHUNTING_LOCATIONS_ON_ROUTE));
         parseDepotLocationsSheet(workbook.getSheet(Sheets.DEPOT_LOCATIONS));
         parseMaintenanceSlotsSheet(workbook.getSheet(Sheets.MAINTENANCE_SLOTS));
         return builder.buildWithDefaults();
+    }
+
+    private void parseTransitLinesSheet(Sheet sheet) {
+        checkIfSheetExists(sheet, Sheets.TRANSIT_LINES);
+
+        for (Row row : sheet) {
+            if (row.getRowNum() == 0) continue; // skip header row
+            Cell transitLineIdCell = row.getCell(0);
+            Cell vehicleTypeIdCell = row.getCell(1);
+            if (transitLineIdCell != null && vehicleTypeIdCell != null) {
+                String transitLineId = transitLineIdCell.getStringCellValue();
+                String vehicleTypeId = vehicleTypeIdCell.getStringCellValue();
+                builder.config.getGlobal().getTransitLineVehicleTypeAllocation().put(transitLineId, vehicleTypeId);
+            } else {
+                throw new IllegalStateException("Incomplete transit line row.");
+            }
+        }
     }
 
     private void parseScenarioInfoSheet(Sheet sheet) {
@@ -76,11 +98,14 @@ public class RsschedRequestConfigReader {
                             case "outputDirectory":
                                 builder.setOutputDirectory(valueCell.getStringCellValue());
                                 break;
-                            case "networkCrs":
-                                builder.setNetworkCrs(valueCell.getStringCellValue());
-                                break;
                             case "sampleSize":
                                 builder.config.getGlobal().setSampleSize(valueCell.getNumericCellValue());
+                                break;
+                            case "deadHeadTripAllowedModes":
+                                if (!valueCell.getStringCellValue().isBlank()) {
+                                    Arrays.stream(valueCell.getStringCellValue().split(","))
+                                            .forEach(value -> builder.addAllowedMode(value.trim()));
+                                }
                                 break;
                             case "deadHeadTripSpeedLimit":
                                 builder.config.getGlobal().setDeadHeadTripSpeedLimit(valueCell.getNumericCellValue());
@@ -94,6 +119,9 @@ public class RsschedRequestConfigReader {
                                 break;
                             case "dayLimitThreshold":
                                 builder.config.getGlobal().setDayLimitThreshold((int) valueCell.getNumericCellValue());
+                                break;
+                            case "capacityFactor":
+                                builder.config.getGlobal().setCapacityFactor(valueCell.getNumericCellValue());
                                 break;
                             case "seatDurationThreshold":
                                 builder.config.getGlobal()
@@ -190,7 +218,8 @@ public class RsschedRequestConfigReader {
                 group.add(vehicleTypeId);
 
                 // add vehicle as vehicle type, will overwrite MATSim transit vehicle values
-                builder.config.getGlobal().getVehicleTypes()
+                builder.config.getGlobal()
+                        .getVehicleTypes()
                         .add(new RsschedRequestConfig.Global.VehicleType(vehicleTypeId, standingRoom + seats, seats,
                                 maximumFormationCount));
             } else {
@@ -199,11 +228,34 @@ public class RsschedRequestConfigReader {
         }
 
         // add filter strategy for vehicle types
-        Set<VehicleTypeFilterStrategy.VehicleCategory> vehicleCategories = new HashSet<>();
+        Set<VehicleCategory> vehicleCategories = new HashSet<>();
         for (var group : vehicleTypesPerGroup.entrySet()) {
-            vehicleCategories.add(new VehicleTypeFilterStrategy.VehicleCategory(group.getKey(), group.getValue()));
+            vehicleCategories.add(new VehicleCategory(group.getKey(), group.getValue()));
         }
-        builder.setFilterStrategy(new VehicleTypeFilterStrategy(vehicleCategories));
+
+        if (builder.config.getGlobal().getTransitLineVehicleTypeAllocation().isEmpty()) {
+            builder.setFilterStrategy(new VehicleTypeFilterStrategy(vehicleCategories));
+        } else {
+
+            // ensure all allocated vehicle types in transit line sheet exist in the vehicle type sheet
+            Set<String> existingVehicleTypeIds = builder.config.getGlobal()
+                    .getVehicleTypes()
+                    .stream()
+                    .map(RsschedRequestConfig.Global.VehicleType::id)
+                    .collect(Collectors.toSet());
+
+            for (var vehicleTypeId : new HashSet<>(
+                    builder.config.getGlobal().getTransitLineVehicleTypeAllocation().values())) {
+                if (!existingVehicleTypeIds.contains(vehicleTypeId)) {
+                    throw new IllegalStateException(
+                            "Vehicle type " + vehicleTypeId + " from transit line selection is missing in vehicle type sheet.");
+                }
+            }
+
+            builder.setFilterStrategy(
+                    new TransitLineIdFilterStrategy(builder.config.getGlobal().getTransitLineVehicleTypeAllocation(),
+                            vehicleCategories));
+        }
     }
 
     private void parseShuntingLocationsOnRouteSheet(Sheet sheet) {
@@ -323,6 +375,7 @@ public class RsschedRequestConfigReader {
         public static final String MAINTENANCE_SLOTS = "maintenance_slots";
         public static final String SHUNTING_LOCATIONS_ON_ROUTE = "shunting_locations_on_route";
         public static final String VEHICLE_TYPES = "vehicle_types";
+        public static final String TRANSIT_LINES = "transit_lines";
         public static final String SCENARIO_INFO = "scenario_info";
     }
 }
